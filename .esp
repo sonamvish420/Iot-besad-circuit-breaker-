@@ -1,0 +1,98 @@
+// IoT Based Circuit Breaker using ESP8266 (NodeMCU)
+// WiFi Controlled Circuit Breaker
+
+#include <ESP8266WiFi.h>
+
+const char* ssid = "YOUR_WIFI_NAME";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// Relay Pin
+int relayPin = D1;
+
+// Buzzer Pin
+int buzzerPin = D2;
+
+// Current Sensor Pin
+int sensorPin = A0;
+
+// Current Limit
+float currentLimit = 2.0;
+
+WiFiServer server(80);
+
+void setup() {
+
+  Serial.begin(115200);
+
+  pinMode(relayPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+
+  digitalWrite(relayPin, HIGH);
+  digitalWrite(buzzerPin, LOW);
+
+  // WiFi Connection
+  WiFi.begin(ssid, password);
+
+  Serial.print("Connecting to WiFi");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi Connected");
+
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  server.begin();
+}
+
+void loop() {
+
+  // Read Current Sensor
+  int sensorValue = analogRead(sensorPin);
+
+  float voltage = sensorValue * (3.3 / 1023.0);
+
+  float current = voltage * 2;
+
+  Serial.print("Current: ");
+  Serial.println(current);
+
+  // Overload Protection
+  if (current > currentLimit) {
+
+    digitalWrite(relayPin, LOW);
+
+    digitalWrite(buzzerPin, HIGH);
+
+    Serial.println("OVERLOAD DETECTED");
+    Serial.println("Circuit Breaker OFF");
+
+  }
+  else {
+
+    digitalWrite(relayPin, HIGH);
+
+    digitalWrite(buzzerPin, LOW);
+
+    Serial.println("System Normal");
+  }
+
+  // Web Server
+  WiFiClient client = server.available();
+
+  if (client) {
+
+    String request = client.readStringUntil('\r');
+
+    client.flush();
+
+    // Relay ON Command
+    if (request.indexOf("/ON") != -1) {
+
+      digitalWrite(relayPin, HIGH);
+
+      Serial.println("Relay ON");
